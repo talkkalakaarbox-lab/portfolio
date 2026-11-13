@@ -39,3 +39,18 @@ Not completed automatically
    - Real project screenshots, demo URLs, GitHub repositories, exact contribution statements, verified outcome metrics and missing experience dates must be supplied by the portfolio owner.
    - True server-side contact-form rate limiting requires a backend or serverless endpoint and is not possible with a static-only site.
    - Production Firebase permissions and deployed contact-form delivery should be tested in the owner's Firebase/hosting accounts.
+
+
+7. Certificate photo uploads (Base64)
+   - Added an optional photo upload field to every certification in the admin panel.
+   - Images are resized and compressed to JPEG in the browser before being converted to Base64 data URLs; Firebase Storage is not used.
+   - Added per-image and combined payload limits to preserve headroom under Firestore's 1 MiB document limit.
+   - Added image preview and removal controls in the admin panel.
+   - Public portfolio displays uploaded certificate photos alongside the corresponding certification.
+   - Added strict image data URL validation before rendering and before saving.
+
+
+[2026-11-13] Resume source-link presentation
+- Changed project source links in generated resumes from a visible "Source: domain.com" string to a clickable "Link to Source Code" label.
+- The destination URL remains embedded in the PDF hyperlink.
+- Existing preview/demo link formatting is unchanged.

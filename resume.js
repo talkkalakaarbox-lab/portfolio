@@ -58,7 +58,7 @@
   function projectLinks(p) {
     const out = [];
     const src = safeUrl(p.source);
-    if (src) out.push({ label: 'Source', url: src });
+    if (src) out.push({ label: 'Link to Source Code', url: src, source: true });
     (p.previews || []).forEach(line => {
       line = str(line); const i = line.indexOf('|');
       const url = safeUrl(i > -1 ? line.slice(i + 1) : line);
@@ -143,7 +143,14 @@
           const parts = [];
           links.forEach((l, i) => {
             if (i) parts.push({ text: SEP });
-            parts.push({ text: l.label + ': ', bold: true }, { text: bare(l.url), link: l.url });
+            if (l.source) {
+              // Keep the actual URL embedded in the clickable label instead of
+              // exposing a shortened domain in the printed resume.
+              parts.push({ text: l.label, link: l.url, color: '#1A5FB4', decoration: 'underline' });
+            } else {
+              // Preserve the existing visible format for demo/preview links.
+              parts.push({ text: l.label + ': ', bold: true }, { text: bare(l.url), link: l.url });
+            }
           });
           block.push({ text: parts });
         }

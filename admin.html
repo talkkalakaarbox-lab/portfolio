@@ -152,6 +152,7 @@ footer{padding:40px 0 80px;color:var(--dim);font-size:12px}
     <button class="btn sm addrow" data-add="education">+ Add school</button>
 
     <h2>Certifications</h2>
+    <p class="hint" style="margin:-6px 0 14px">Upload an optional certificate photo for each entry. Images are compressed in the browser and stored as Base64 in the existing Firestore content document; keep the combined photo data under the built-in size limit.</p>
     <div id="list-certs"></div>
     <button class="btn sm addrow" data-add="certs">+ Add certificate</button>
 
@@ -177,7 +178,7 @@ const LISTS = {
   projects:  { name: 'Project', cols: 'grid2', fields: [['title','Title'],['tag','Tag (e.g. In production)'],['desc','Description','area'],['points','Bullet points (one per line)','lines'],['stack','Tech stack'],['source','Source code link (GitHub, optional)'],['previews','Preview links (optional). One per line: Label | URL  e.g. Customer app | https://...','lines'],['challenge','Problem / challenge (optional)','area'],['contribution','Your contribution (optional)','area'],['solution','What you built / approach (optional)','area'],['outcome','Outcome or impact (optional; use verified facts)','area'],['image','Project image URL (optional; HTTPS)','url'],['onResume','Include on resume PDF','check']], blank: { title:'', tag:'', desc:'', points:[], stack:'', source:'', previews:[], challenge:'', contribution:'', solution:'', outcome:'', image:'', onResume:true } },
   skills:    { name: 'Group',   cols: 'grid2', fields: [['name','Group name'],['items','Skills (comma separated)']], blank: { name:'', items:'' } },
   education: { name: 'School',  cols: 'grid2', fields: [['when','Years'],['title','Degree / level'],['place','School, city, board'],['note','Grade / status'],['detail','Resume second line (optional, replaces years | grade)']], blank: { when:'', title:'', place:'', note:'', detail:'' } },
-  certs:     { name: 'Certificate', cols: 'grid2', fields: [['when','Date'],['title','Title'],['place','Issuer'],['note','Tag']], blank: { when:'', title:'', place:'', note:'' } }
+  certs:     { name: 'Certificate', cols: 'grid2', fields: [['when','Date'],['title','Title'],['place','Issuer'],['note','Tag'],['image','Certificate photo (Base64)','image']], blank: { when:'', title:'', place:'', note:'', image:'' } }
 };
 
 let D = null, dirty = false, loadReady = false, savedDocumentExists = false;
@@ -208,6 +209,66 @@ document.addEventListener('input', e => {
   }
 });
 
+const MAX_CERT_IMAGE_BYTES = 110 * 1024;
+const MAX_CERT_IMAGES_TOTAL_CHARS = 430000; // Keep comfortable headroom below Firestore's 1 MiB document limit.
+async function compressCertificateImage(file) {
+  if (!file || !file.type.startsWith('image/')) throw new Error('Choose an image file.');
+  if (file.size > 15 * 1024 * 1024) throw new Error('Please choose an image smaller than 15 MB.');
+  let bitmap;
+  try { bitmap = await createImageBitmap(file); }
+  catch (_) { throw new Error('This image could not be opened. Try a JPG, PNG or WebP image.'); }
+  try {
+    const scale = Math.min(1, 1100 / bitmap.width, 1500 / bitmap.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    let quality = 0.78, dataUrl = '';
+    for (let attempt = 0; attempt < 7; attempt++) {
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+      if (!blob) throw new Error('Image compression failed.');
+      if (blob.size <= MAX_CERT_IMAGE_BYTES) {
+        dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(new Error('Could not read the compressed image.'));
+          reader.readAsDataURL(blob);
+        });
+        break;
+      }
+      quality -= 0.09;
+    }
+    if (!dataUrl) throw new Error('This image is too detailed to fit safely. Choose a smaller or clearer crop.');
+    return dataUrl;
+  } finally { bitmap.close?.(); }
+}
+document.addEventListener('change', async e => {
+  const input = e.target;
+  if (!input.matches('[data-cert-image]')) return;
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const card = input.closest('[data-list="certs"]');
+  if (!card) return;
+  const index = Number(card.dataset.i);
+  input.disabled = true;
+  setStatus('Compressing certificate photo…');
+  try {
+    const dataUrl = await compressCertificateImage(file);
+    const currentTotal = (D.certs || []).reduce((sum, cert, i) => sum + (i === index ? 0 : String(cert.image || '').length), 0);
+    if (currentTotal + dataUrl.length > MAX_CERT_IMAGES_TOTAL_CHARS) {
+      throw new Error('Certificate photos exceed the safe total storage budget. Remove another photo or use fewer/smaller images.');
+    }
+    D.certs[index].image = dataUrl;
+    renderList('certs'); markDirty();
+    setStatus('Certificate photo added. Save changes to publish it.', 'ok');
+  } catch (err) {
+    setStatus(err.message || 'Could not upload this photo.', 'err');
+    input.value = '';
+  } finally { input.disabled = false; }
+});
+
 /* ---------- list editors ---------- */
 function renderList(key){
   const L = LISTS[key], items = D[key] || [];
@@ -222,6 +283,7 @@ function renderList(key){
         if (type === 'area')  return `<label style="grid-column:1/-1">${esc(label)}<textarea data-f="${f}" rows="3">${esc(v)}</textarea></label>`;
         if (type === 'url') return `<label>${esc(label)}<input type="url" data-f="${f}" value="${esc(v)}" placeholder="https://..."></label>`;
         if (type === 'check') return `<label style="grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:14px;color:var(--fg)"><input type="checkbox" data-f="${f}" ${v !== false ? 'checked' : ''} style="width:auto">${esc(label)}</label>`;
+        if (type === 'image') return `<div style="grid-column:1/-1;display:grid;gap:8px"><label>${esc(label)}<input type="file" data-cert-image accept="image/*"><span class="hint">Image is resized and compressed in your browser, then saved as Base64 in Firestore. Recommended: clear certificate photo or scan.</span></label>${v ? `<div class="row-inline"><img src="${esc(v)}" alt="Certificate preview" style="width:88px;height:112px;object-fit:cover;border:1px solid var(--line);border-radius:6px"><button type="button" class="btn sm danger" data-act="remove-photo">Remove photo</button></div>` : '<span class="hint">No certificate photo uploaded.</span>'}</div>`;
         return `<label>${esc(label)}<input data-f="${f}" value="${esc(v)}"></label>`;
       }).join('')}</div>
     </div>`).join('');
@@ -234,6 +296,7 @@ document.addEventListener('click', e => {
   const act = e.target.closest('[data-act]');
   if (!act) return;
   const card = act.closest('[data-list]'), k = card.dataset.list, i = +card.dataset.i, arr = D[k];
+  if (act.dataset.act === 'remove-photo' && k === 'certs') { D.certs[i].image = ''; renderList('certs'); markDirty(); return; }
   if (act.dataset.act === 'del' && confirm('Delete this item?')) arr.splice(i, 1);
   else if (act.dataset.act === 'up' && i > 0) [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
   else if (act.dataset.act === 'down' && i < arr.length - 1) [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]];
@@ -261,6 +324,12 @@ function validateContent() {
   for (const [field, label] of [['linkedin','LinkedIn'],['github','GitHub'],['instagram','Instagram']]) {
     if (!validHttpUrl(D[field], label)) return false;
   }
+  const certImageChars = (D.certs || []).reduce((sum, cert) => {
+    const image = String(cert.image || '');
+    if (image && !/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(image)) { setStatus('Certificate photos must be valid compressed JPEG data.', 'err'); return Infinity; }
+    return sum + image.length;
+  }, 0);
+  if (certImageChars > MAX_CERT_IMAGES_TOTAL_CHARS) { setStatus('Certificate photos exceed the safe Firestore storage budget. Remove or resize some photos.', 'err'); return false; }
   for (const [i, project] of (D.projects || []).entries()) {
     if (!validHttpUrl(project.source, `Project ${i + 1} source link`) || !validHttpUrl(project.image, `Project ${i + 1} image`)) return false;
     for (const line of project.previews || []) {

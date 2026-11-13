@@ -112,7 +112,7 @@ const SITE = {
   ],
 
   certs: [
-    { when: "Jul 2026", title: "Inheritance and Data Structures in Java", place: "University of Pennsylvania", note: "Java" },
-    { when: "Jan 2026", title: "Introduction to Java",                    place: "LearnQuest",                note: "Java" }
+    { when: "Jul 2026", title: "Inheritance and Data Structures in Java", place: "University of Pennsylvania", note: "Java", image: "" },
+    { when: "Jan 2026", title: "Introduction to Java",                    place: "LearnQuest",                note: "Java", image: "" }
   ]
 };
