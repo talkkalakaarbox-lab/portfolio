@@ -12,7 +12,7 @@ FIREBASE SETUP
   2. Create the administrator account using the email configured as ADMIN_EMAIL in content.js.
   3. In Firestore Database > Rules, publish the contents of firestore.rules.
   4. Confirm that the UID in firestore.rules belongs to the intended administrator account.
-  5. Firebase Storage is not required for resume generation or portfolio content.
+  5. Firebase Storage is not required for resume generation or portfolio content. Certificate photos are compressed in the browser and stored as Base64 in the existing Firestore content document.
 
 SECURITY NOTES
   - The Firebase web API key is a public client configuration value, not an admin secret.
@@ -40,3 +40,9 @@ CONTENT GUIDANCE
   - Use accurate dates, individual contributions and measurable outcomes only when verified.
   - Do not enter private client data or credentials in project case studies.
   - Resume PDFs are generated on the visitor's device when they click Resume; no PDF is uploaded to Firebase Storage.
+  - Certificate photos are resized and compressed to JPEG in the admin browser, then stored as Base64 data URLs in the `certs` array in Firestore. Each photo is limited to about 110 KiB and all certificate image data together is limited to 430,000 characters to leave headroom under Firestore's 1 MiB document limit.
+  - Certificate photos are optional. Upload them in Admin > Certifications; remove a photo with its Remove photo button. Click Save changes to publish. Images are displayed beside the relevant certificate on the public portfolio.
+
+RESUME PROJECT LINKS
+- When a project has a Source code link configured in the Admin panel, the generated resume displays a clickable "Link to Source Code" label instead of exposing the domain.
+- Preview links retain their configured label and visible URL format.
