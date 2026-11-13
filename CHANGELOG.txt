@@ -1,0 +1,41 @@
+PORTFOLIO OS — UPDATE NOTES
+
+Implemented in this update
+
+1. Admin reliability and content safety
+   - Admin Save is disabled until the Firestore read succeeds.
+   - A failed Firestore read no longer leaves a path to overwrite the live document with defaults.
+   - First-time creation of the Firestore content document requires explicit confirmation.
+   - Admin validates the contact email and HTTP/HTTPS profile, project and preview URLs.
+   - The public site sanitizes editable rich text to bold, italic and line breaks only.
+   - External project and social URLs are restricted to HTTP/HTTPS before use.
+
+2. Project case-study support
+   - Added optional Challenge, Contribution, Approach, Outcome and Screenshot URL fields to project editing.
+   - Filled case-study fields appear inside the existing expandable project panels.
+   - Screenshot fields accept public HTTPS image URLs; no screenshots or project claims were fabricated.
+
+3. Resume improvements
+   - Updated the professional summary and resume title.
+   - Removed semester SPI figures from the default resume detail.
+   - Added compatibility cleanup so older saved education details containing semester SPI figures are omitted from the generated resume.
+   - Hardened external links embedded in the PDF.
+   - Resume generation remains browser-side; no Firebase Storage dependency was added.
+
+4. Professional positioning and profiles
+   - Updated hero and About copy to better describe practical software, business applications and automation work.
+   - GitHub and Instagram remain optional and hidden until real URLs are supplied. No profile URLs were invented.
+
+5. Contact form
+   - Re-enabled the form provider's default CAPTCHA behavior by removing the explicit CAPTCHA-disable flag.
+   - Browser-side one-minute throttling remains best-effort, not server-side rate limiting.
+
+6. Accessibility and responsive support
+   - Added accessible accordion control relationships and expanded/collapsed state announcements.
+   - Added labels to social profile links and retained reduced-motion styling.
+   - Existing responsive layout rules were preserved; full device/browser QA still needs to be performed on the deployed site.
+
+Not completed automatically
+   - Real project screenshots, demo URLs, GitHub repositories, exact contribution statements, verified outcome metrics and missing experience dates must be supplied by the portfolio owner.
+   - True server-side contact-form rate limiting requires a backend or serverless endpoint and is not possible with a static-only site.
+   - Production Firebase permissions and deployed contact-form delivery should be tested in the owner's Firebase/hosting accounts.
